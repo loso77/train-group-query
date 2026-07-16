@@ -4,6 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0b6f66">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="车组查询">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icon.svg">
   <title>车组查询</title>
   <style>
     :root {
@@ -141,6 +147,24 @@
     .danger-btn { color: var(--danger); background: var(--danger-soft); }
 
     .quick-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 13px; }
+    .offline-note {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: #d5a43d;
+      box-shadow: 0 0 0 4px rgba(213,164,61,.12);
+    }
+    .offline-note.ready .status-dot { background: #269b75; box-shadow: 0 0 0 4px rgba(38,155,117,.12); }
+    .offline-note.offline .status-dot { background: #68807c; box-shadow: 0 0 0 4px rgba(104,128,124,.12); }
     .chip {
       min-height: 34px;
       padding: 0 12px;
@@ -311,6 +335,10 @@
           <button class="primary-btn" id="queryBtn">查询车组</button>
         </div>
         <div class="quick-row" id="recentQueries"></div>
+        <div class="offline-note" id="offlineNote">
+          <span class="status-dot"></span>
+          <span id="offlineStatus">正在准备离线功能…</span>
+        </div>
         <div class="results" id="results">
           <div class="empty">查询结果会显示在这里</div>
         </div>
@@ -409,6 +437,7 @@
     let editingOriginal = null;
     let sortAscending = true;
     let toastTimer;
+    let offlineReady = Boolean(navigator.serviceWorker && navigator.serviceWorker.controller);
 
     const $ = (id) => document.getElementById(id);
     const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
@@ -627,6 +656,33 @@
       toastTimer = setTimeout(() => $("toast").classList.remove("show"), 1800);
     }
 
+    function updateOfflineStatus() {
+      const note = $("offlineNote");
+      note.classList.toggle("offline", !navigator.onLine);
+      note.classList.toggle("ready", navigator.onLine && offlineReady);
+      if (!navigator.onLine) {
+        $("offlineStatus").textContent = offlineReady ? "当前已离线，仍可正常使用" : "当前离线，请联网打开一次以启用离线功能";
+      } else {
+        $("offlineStatus").textContent = offlineReady ? "离线功能已就绪" : "正在准备离线功能…";
+      }
+    }
+
+    async function enableOfflineMode() {
+      updateOfflineStatus();
+      if (!("serviceWorker" in navigator)) {
+        $("offlineStatus").textContent = "当前浏览器不支持完整离线模式";
+        return;
+      }
+      try {
+        await navigator.serviceWorker.register("./sw.js", {updateViaCache: "none"});
+        await navigator.serviceWorker.ready;
+        offlineReady = true;
+        updateOfflineStatus();
+      } catch {
+        $("offlineStatus").textContent = navigator.onLine ? "离线功能准备失败，请刷新重试" : "当前已离线";
+      }
+    }
+
     document.querySelectorAll(".tab").forEach(tab => tab.addEventListener("click", () => switchView(tab.dataset.view)));
     $("queryBtn").addEventListener("click", runQuery);
     $("queryInput").addEventListener("keydown", event => { if (event.key === "Enter") runQuery(); });
@@ -656,10 +712,13 @@
     $("exportBtn").addEventListener("click", exportBackup);
     $("importInput").addEventListener("change", event => { if (event.target.files[0]) importBackup(event.target.files[0]); });
     $("resetBtn").addEventListener("click", resetData);
+    window.addEventListener("online", () => { updateOfflineStatus(); showToast("网络已恢复"); });
+    window.addEventListener("offline", () => { updateOfflineStatus(); showToast("已离线，仍可继续使用"); });
 
     updateCount();
     renderDataList();
     renderRecent();
+    enableOfflineMode();
   </script>
 </body>
 </html>
