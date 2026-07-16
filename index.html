@@ -307,7 +307,7 @@
         <h2>输入车号，立即查询</h2>
         <p class="hint">支持同时输入多个车号，用空格、逗号或换行隔开；输入 5 会自动识别为 005。</p>
         <div class="search-row">
-          <input class="input" id="queryInput" inputmode="numeric" autocomplete="off" placeholder="例如：042 005 071" aria-label="车组编号">
+          <input class="input" id="queryInput" type="text" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search" placeholder="例如：042 005 071" aria-label="车组编号">
           <button class="primary-btn" id="queryBtn">查询车组</button>
         </div>
         <div class="quick-row" id="recentQueries"></div>
